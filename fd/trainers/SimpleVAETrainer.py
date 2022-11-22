@@ -35,6 +35,7 @@ class SimpleVAETrainer(pl.LightningModule):
             act_fn=nn.SiLU,
             final_act_fn=nn.Tanh
         )
+        print(self.model)
 
     def forward(self, input_dict):
         pred, outs = self.model(input_dict["input"].to(self.device))
@@ -51,11 +52,12 @@ class SimpleVAETrainer(pl.LightningModule):
 
     def loss(self, input_dict, kl_mult=1.0):
         pred, out = self.forward(input_dict)
+        B = pred.shape[0]
 
-        recon_loss = F.l1_loss(pred, out["target"].to(
-            self.device), reduction="sum")
+        recon_loss = F.l1_loss(pred, input_dict["target"].to(
+            self.device), reduction="sum") / B
         KL = self.model.kl_divergence(
-            out["z"], out["mean"], out["log_var"], reduction="sum")
+            out["z"], out["mean"], out["log_var"], reduction="sum").mean()
 
         loss = self.hparams.loss.l1_weight * recon_loss \
             + kl_mult * self.hparams.loss.kl_weight * KL
@@ -72,11 +74,11 @@ class SimpleVAETrainer(pl.LightningModule):
             self.log(f'{step}/{k}', v, on_step=on_step, on_epoch=True)
 
     def training_step(self, batch, batch_idx):
-        kl_mult_epoch = ((self.current_epoch + 1) %
+        kl_mult_epoch = ((self.current_epoch) %
                          self.hparams.loss.kl_cycle) / self.hparams.loss.kl_cycle
-        kl_mult_step = ((batch_idx + 1) % self.trainer.num_training_batches) / \
+        kl_mult_step = ((batch_idx) % self.trainer.num_training_batches) / \
             self.trainer.num_training_batches
-        kl_mult = max(1., 2 * (kl_mult_epoch + kl_mult_step /
+        kl_mult = min(1., 2 * (kl_mult_epoch + kl_mult_step /
                       self.hparams.loss.kl_cycle))
 
         out = self.loss(batch, kl_mult=kl_mult)
@@ -110,9 +112,10 @@ class SimpleVAETrainer(pl.LightningModule):
         if opt_params.scheduler is None:
             return opt
 
+        estimated_stepping_batches = self.trainer.estimated_stepping_batches
         if opt_params.scheduler == "cosine_warmup":
             sched = lnn.get_cosine_schedule_with_warmup(
-                opt, opt_params.warmup * self.trainer.num_training_batches, self.trainer.estimated_stepping_batches)
+                opt, opt_params.warmup * self.trainer.num_training_batches, estimated_stepping_batches)
         else:
             raise ValueError(f"Unknown scheduler {opt_params.scheduler}")
 
@@ -120,3 +123,4 @@ class SimpleVAETrainer(pl.LightningModule):
             "scheduler": sched,
             "interval": opt_params.sched_interval
         }]
+

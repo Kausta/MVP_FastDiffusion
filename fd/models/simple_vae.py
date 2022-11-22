@@ -36,7 +36,7 @@ class DownBlock(nn.Module):
     def forward(self, x):
         out = self.res_block(x)
         out += self.shortcut(x)
-        return x / np.sqrt(2)
+        return out / np.sqrt(2)
 
 
 class UpBlock(nn.Module):
@@ -56,7 +56,7 @@ class UpBlock(nn.Module):
                       padding=1, stride=1, bias=True),
         )
         self.shortcut = nn.Conv2d(
-            in_ch, out_ch, kernel_size=1, padding=0, stride=1, bias=False),
+            in_ch, out_ch, kernel_size=1, padding=0, stride=1, bias=False)
 
     def forward(self, x):
         shortcut = F.interpolate(self.shortcut(
@@ -65,27 +65,27 @@ class UpBlock(nn.Module):
         out = self.post_res_block(F.interpolate(
             out, scale_factor=2, mode="nearest"))
         out += shortcut
-        return x / np.sqrt(2)
+        return out / np.sqrt(2)
 
 
 class Encoder(nn.Module):
-    def __init__(self, in_ch=3, latent_dim=256, layers=[16, 32, 64, 128, 256], act_fn=nn.SiLU):
+    def __init__(self, in_ch=3, latent_dim=256, channels=[16, 32, 64, 128, 256], act_fn=nn.SiLU):
         super().__init__()
 
         layers = [
-            nn.Conv2d(in_ch, layers[0], kernel_size=3,
+            nn.Conv2d(in_ch, channels[0], kernel_size=3,
                       padding=1, stride=1, bias=True)
         ]
-        for i in range(1, len(layers)):
+        for i in range(1, len(channels)):
             layers.extend([
-                DownBlock(layers[i-1], layers[i], act_fn=act_fn),
+                DownBlock(channels[i-1], channels[i], act_fn=act_fn),
             ])
         layers.extend([
-            nn.InstanceNorm2d(layers[-1], affine=True),
+            nn.InstanceNorm2d(channels[-1], affine=True),
             act_fn(),
             nn.AdaptiveAvgPool2d(1),
             lnn.BatchReshape(-1),
-            nn.Linear(layers[-1], 2 * latent_dim)
+            nn.Linear(channels[-1], 2 * latent_dim)
         ])
         self.model = nn.Sequential(*layers)
 
@@ -96,21 +96,21 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dim=256, out_ch=3, layers=[256, 128, 64, 32, 16], init_h=2, init_w=2, act_fn=nn.SiLU, final_act_fn=nn.Tanh):
+    def __init__(self, latent_dim=256, out_ch=3, channels=[256, 128, 64, 32, 16], init_h=2, init_w=2, act_fn=nn.SiLU, final_act_fn=nn.Tanh):
         super().__init__()
 
         layers = [
-            nn.Linear(latent_dim, layers[0] * init_h * init_w),
-            lnn.BatchReshape(-1, init_h, init_w),
+            nn.Linear(latent_dim, channels[0] * init_h * init_w),
+            lnn.BatchReshape(channels[0], init_h, init_w),
         ]
-        for i in range(1, len(layers)):
+        for i in range(1, len(channels)):
             layers.extend([
-                UpBlock(layers[i-1], layers[i], act_fn=act_fn),
+                UpBlock(channels[i-1], channels[i], act_fn=act_fn),
             ])
         layers.extend([
-            nn.InstanceNorm2d(layers[-1], affine=True),
+            nn.InstanceNorm2d(channels[-1], affine=True),
             act_fn(),
-            nn.Conv2d(layers[-1], out_ch, kernel_size=1,
+            nn.Conv2d(channels[-1], out_ch, kernel_size=1,
                       padding=0, stride=1, bias=True),
             final_act_fn()
         ])

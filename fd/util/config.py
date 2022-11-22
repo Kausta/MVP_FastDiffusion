@@ -16,8 +16,8 @@ class ModelConfig:
     in_ch: int = 3
     latent_dim: int = 256
     out_ch: int = 3
-    image_h: int = 32
-    image_w: int = 32
+    image_h: int = 256
+    image_w: int = 256
     encoder_channels: List[int] = field(
         default_factory=lambda: [16, 32, 64, 128, 256])
     decoder_channels: List[int] = field(
@@ -37,7 +37,15 @@ class OptimizerConfig:
 @dataclass
 class DataConfig:
     data_root: str = str(Path("~/data").expanduser())
-    batch_size: int = 64
+    dataset_cls: str = "CelebaHQColorizationDataset"
+    dataset: str = "celeba_hq_256"
+    split: str = "celebahq"
+    train_batch_size: int = 64
+    val_batch_size: int = 16
+    test_batch_size: int = 16
+    train_workers: int = 4
+    val_workers: int = 4
+    test_workers: int = 4
 
 
 @dataclass
@@ -60,6 +68,7 @@ class TrainerConfig:
     trainer: str = "SimpleVAETrainer"
     pl: PLTrainerConfig = PLTrainerConfig()
     max_epochs: int = 100
+    out_dir: str = str(Path("~/outputs/simplevae").expanduser())
 
 
 @dataclass
