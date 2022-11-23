@@ -51,6 +51,7 @@ class DataConfig:
 @dataclass
 class LossConfig:
     l1_weight: float = 1.0
+    mse_weight: float = 1.0
     kl_weight: float = 1.0
     kl_cycle: int = 25
 

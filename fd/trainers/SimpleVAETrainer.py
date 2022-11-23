@@ -52,14 +52,13 @@ class SimpleVAETrainer(pl.LightningModule):
 
     def loss(self, input_dict, kl_mult=1.0):
         pred, out = self.forward(input_dict)
-        B = pred.shape[0]
 
-        recon_loss = F.l1_loss(pred, input_dict["target"].to(
-            self.device), reduction="sum") / B
+        recon_loss = F.mse_loss(pred, input_dict["target"].to(
+            self.device), reduction="mean")
         KL = self.model.kl_divergence(
-            out["z"], out["mean"], out["log_var"], reduction="sum").mean()
+            out["z"], out["mean"], out["log_var"], reduction="mean").mean()
 
-        loss = self.hparams.loss.l1_weight * recon_loss \
+        loss = self.hparams.loss.mse_weight * recon_loss \
             + kl_mult * self.hparams.loss.kl_weight * KL
 
         return {
