@@ -1,0 +1,39 @@
+project: fast_diffusion
+group: simpleae_color
+
+trainer:
+  max_epochs: 100
+  pl:
+    log_freq: 50
+
+data:
+  data_root: /rds/user/ok313/hpc-work/datasets/
+  dataset_cls: CelebaHQColorizationDataset
+  dataset: celeba_hq_256
+  split: celebahq
+  train_batch_size: 256
+  val_batch_size: 128
+  test_batch_size: 128
+  train_workers: 4
+  val_workers: 4
+  test_workers: 4
+
+model:
+  in_ch: 1
+  latent_dim: 64
+  out_ch: 3
+  image_h: 128
+  image_w: 128
+  encoder_channels: [16, 32, 64, 128, 256]
+  decoder_channels: [256, 128, 64, 32, 16]
+
+optimizer:
+  optimizer: "adamw"
+  lr: 1e-3
+  wd: 1e-2
+  scheduler: cosine_warmup
+  sched_interval: step
+  warmup: 5
+
+loss:
+  kl_cycle: 25

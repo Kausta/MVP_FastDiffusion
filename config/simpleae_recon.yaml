@@ -1,5 +1,5 @@
 project: fast_diffusion
-group: simplevae
+group: simpleae_recon
 
 trainer:
   max_epochs: 100
@@ -8,7 +8,7 @@ trainer:
 
 data:
   data_root: /rds/user/ok313/hpc-work/datasets/
-  dataset_cls: CelebaHQColorizationDataset
+  dataset_cls: CelebaHQReconDataset
   dataset: celeba_hq_256
   split: celebahq
   train_batch_size: 256
@@ -19,13 +19,13 @@ data:
   test_workers: 4
 
 model:
-  in_ch: 1
-  latent_dim: 512
+  in_ch: 3
+  latent_dim: 64
   out_ch: 3
   image_h: 128
   image_w: 128
-  encoder_channels: [16, 32, 64, 128, 256, 512]
-  decoder_channels: [512, 256, 128, 64, 32, 16]
+  encoder_channels: [16, 32, 64, 128, 256]
+  decoder_channels: [256, 128, 64, 32, 16]
 
 optimizer:
   optimizer: "adamw"
