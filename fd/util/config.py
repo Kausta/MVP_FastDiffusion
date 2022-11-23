@@ -51,8 +51,10 @@ class DataConfig:
 @dataclass
 class LossConfig:
     l1_weight: float = 1.0
+    mse_weight: float = 1.0
     kl_weight: float = 1.0
     kl_cycle: int = 25
+    lpips_weight: float = 1.0
 
 
 @dataclass
@@ -65,10 +67,10 @@ class PLTrainerConfig:
 
 @dataclass
 class TrainerConfig:
-    trainer: str = "SimpleVAETrainer"
+    trainer: str = "SimpleAETrainer"
     pl: PLTrainerConfig = PLTrainerConfig()
     max_epochs: int = 100
-    out_dir: str = str(Path("~/outputs/simplevae").expanduser())
+    out_dir: str = str(Path("~/outputs/simpleae").expanduser())
 
 
 @dataclass

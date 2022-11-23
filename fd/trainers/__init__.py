@@ -1,2 +1,2 @@
 from .loggers import *
-from .SimpleVAETrainer import *
+from .SimpleAETrainer import *

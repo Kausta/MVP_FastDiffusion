@@ -4,17 +4,18 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import pytorch_lightning as pl
+import lpips
 
 import fd.nn as lnn
 
 from fd.util.config import ConfigType
 
-from fd.models import SimpleVAE
+from fd.models import SimpleAE
 
-__all__ = ["SimpleVAETrainer"]
+__all__ = ["SimpleAETrainer"]
 
 
-class SimpleVAETrainer(pl.LightningModule):
+class SimpleAETrainer(pl.LightningModule):
     hparams: ConfigType
 
     def __init__(self, config: ConfigType):
@@ -23,19 +24,17 @@ class SimpleVAETrainer(pl.LightningModule):
         self.save_hyperparameters(config)
 
         model_params = self.hparams.model
-        self.model = SimpleVAE(
+        self.model = SimpleAE(
             in_ch=model_params.in_ch,
             latent_dim=model_params.latent_dim,
             out_ch=model_params.out_ch,
-            image_h=model_params.image_h,
-            image_w=model_params.image_w,
             encoder_layers=model_params.encoder_channels,
             decoder_layers=model_params.decoder_channels,
-            prior=lnn.StandardNormalPrior(model_params.latent_dim),
             act_fn=nn.SiLU,
             final_act_fn=nn.Tanh
         )
         print(self.model)
+        self.loss_fn_vgg = lpips.LPIPS(net='vgg') 
 
     def forward(self, input_dict):
         pred, outs = self.model(input_dict["input"].to(self.device))
@@ -43,29 +42,22 @@ class SimpleVAETrainer(pl.LightningModule):
 
     def inference(self, input_dict):
         pred, outs = self.model(
-            input_dict["input"].to(self.device), stage='eval')
+            input_dict["input"].to(self.device))
         return pred, outs
 
-    def sample(self, num_samples):
-        pred, outs = self.model.sample(num_samples)
-        return pred, outs
-
-    def loss(self, input_dict, kl_mult=1.0):
+    def loss(self, input_dict):
         pred, out = self.forward(input_dict)
-        B = pred.shape[0]
+        target = input_dict["target"].to(self.device)
 
-        recon_loss = F.l1_loss(pred, input_dict["target"].to(
-            self.device), reduction="sum") / B
-        KL = self.model.kl_divergence(
-            out["z"], out["mean"], out["log_var"], reduction="sum").mean()
+        recon_loss = F.mse_loss(pred, target, reduction="mean")
+        lpips_loss = self.loss_fn_vgg(pred, target).mean()
 
-        loss = self.hparams.loss.l1_weight * recon_loss \
-            + kl_mult * self.hparams.loss.kl_weight * KL
+        loss = self.hparams.loss.mse_weight * recon_loss + self.hparams.loss.lpips_weight * lpips_loss
 
         return {
             "loss": loss,
             "loss_recon": recon_loss,
-            "loss_KL": KL
+            "loss_lpips": lpips_loss   
         }
 
     def log_all(self, out, step="train"):
@@ -74,16 +66,8 @@ class SimpleVAETrainer(pl.LightningModule):
             self.log(f'{step}/{k}', v, on_step=on_step, on_epoch=True)
 
     def training_step(self, batch, batch_idx):
-        kl_mult_epoch = ((self.current_epoch) %
-                         self.hparams.loss.kl_cycle) / self.hparams.loss.kl_cycle
-        kl_mult_step = ((batch_idx) % self.trainer.num_training_batches) / \
-            self.trainer.num_training_batches
-        kl_mult = min(1., 2 * (kl_mult_epoch + kl_mult_step /
-                      self.hparams.loss.kl_cycle))
-
-        out = self.loss(batch, kl_mult=kl_mult)
+        out = self.loss(batch)
         self.log_all(out, "train")
-        self.log("trainer/kl_mult", kl_mult, on_step=True, on_epoch=False)
         return out["loss"]
 
     def validation_step(self, batch, batch_idx):
@@ -101,10 +85,10 @@ class SimpleVAETrainer(pl.LightningModule):
         opt_name = opt_params.optimizer
 
         if opt_name == "adam":
-            opt = optim.Adam(self.parameters(), lr=opt_params.lr,
+            opt = optim.Adam(self.model.parameters(), lr=opt_params.lr,
                              weight_decay=opt_params.wd)
         elif opt_name == "adamw":
-            opt = optim.AdamW(self.parameters(),
+            opt = optim.AdamW(self.model.parameters(),
                               lr=opt_params.lr, weight_decay=opt_params.wd)
         else:
             raise ValueError(f"Unknown optimizer {opt_name}")

@@ -1,3 +1,3 @@
-from . import simple_vae
+from . import simple_ae
 
-from .simple_vae import SimpleVAE
+from .simple_ae import SimpleAE

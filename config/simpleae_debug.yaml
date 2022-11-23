@@ -7,7 +7,7 @@ trainer:
     log_freq: 10
 
 data:
-  dataset_cls: CelebaHQColorizationDataset
+  dataset_cls: CelebaHQReconDataset
   dataset: celeba_hq_256
   split: debug
   train_batch_size: 16
@@ -18,8 +18,8 @@ data:
   test_workers: 2
 
 model:
-  in_ch: 1
-  latent_dim: 512
+  in_ch: 3
+  latent_dim: 64
   out_ch: 3
   image_h: 64
   image_w: 64

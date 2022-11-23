@@ -46,7 +46,6 @@ def main():
         log_every_n_steps=config.trainer.pl.log_freq,
         callbacks=[
             LearningRateMonitor("step"),
-            trainers.ImageSampleLogger(num_samples=8),
             trainers.ImageReconLogger(recon_dict),
             checkpoint_callback
         ]

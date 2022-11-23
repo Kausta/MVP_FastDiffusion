@@ -9,8 +9,28 @@ import pytorch_lightning as pl
 import fd.nn as lnn
 import fd.nn.functional as LF
 
-__all__ = ["SimpleVAE", "DownBlock", "UpBlock", "Encoder", "Decoder"]
+__all__ = ["SimpleAE", "DownBlock", "UpBlock", "Encoder", "Decoder"]
 
+class ResBlock(nn.Module):
+    def __init__(self, ch, act_fn=nn.SiLU):
+        super().__init__()
+
+        self.res_block = nn.Sequential(
+            nn.InstanceNorm2d(ch, affine=True),
+            act_fn(inplace=True),
+            nn.Conv2d(ch, ch, kernel_size=3,
+                      padding=1, stride=1, bias=True),
+            nn.InstanceNorm2d(ch, affine=True),
+            act_fn(inplace=True),
+            nn.Conv2d(ch, ch, kernel_size=3,
+                      padding=1, stride=1, bias=True),
+        )
+        self.shortcut = nn.Identity()
+
+    def forward(self, x):
+        out = self.res_block(x)
+        out += self.shortcut(x)
+        return out / np.sqrt(2)
 
 class DownBlock(nn.Module):
     def __init__(self, in_ch, out_ch, act_fn=nn.SiLU):
@@ -74,38 +94,40 @@ class Encoder(nn.Module):
 
         layers = [
             nn.Conv2d(in_ch, channels[0], kernel_size=3,
-                      padding=1, stride=1, bias=True)
+                      padding=1, stride=1, bias=True),
+            ResBlock(channels[0], act_fn=act_fn)
         ]
         for i in range(1, len(channels)):
             layers.extend([
                 DownBlock(channels[i-1], channels[i], act_fn=act_fn),
+                ResBlock(channels[i], act_fn=act_fn),
+                ResBlock(channels[i], act_fn=act_fn),
             ])
         layers.extend([
             nn.InstanceNorm2d(channels[-1], affine=True),
             act_fn(),
-            nn.AdaptiveAvgPool2d(1),
-            lnn.BatchReshape(-1),
-            nn.Linear(channels[-1], 2 * latent_dim)
+            nn.Conv2d(channels[-1], latent_dim, kernel_size=1, stride=1, padding=0)
         ])
         self.model = nn.Sequential(*layers)
 
     def forward(self, x):
         z = self.model(x)
-        mean, log_var = torch.chunk(z, 2, dim=-1)
-        return mean, log_var
+        return z
 
 
 class Decoder(nn.Module):
-    def __init__(self, latent_dim=256, out_ch=3, channels=[256, 128, 64, 32, 16], init_h=2, init_w=2, act_fn=nn.SiLU, final_act_fn=nn.Tanh):
+    def __init__(self, latent_dim=256, out_ch=3, channels=[256, 128, 64, 32, 16], act_fn=nn.SiLU, final_act_fn=nn.Tanh):
         super().__init__()
 
         layers = [
-            nn.Linear(latent_dim, channels[0] * init_h * init_w),
-            lnn.BatchReshape(channels[0], init_h, init_w),
+            nn.Conv2d(latent_dim, channels[0], kernel_size=1, stride=1, padding=0),
+            ResBlock(channels[0], act_fn=act_fn)
         ]
         for i in range(1, len(channels)):
             layers.extend([
                 UpBlock(channels[i-1], channels[i], act_fn=act_fn),
+                ResBlock(channels[i], act_fn=act_fn),
+                ResBlock(channels[i], act_fn=act_fn),
             ])
         layers.extend([
             nn.InstanceNorm2d(channels[-1], affine=True),
@@ -120,27 +142,20 @@ class Decoder(nn.Module):
         return self.model(z)
 
 
-class SimpleVAE(pl.LightningModule):
+class SimpleAE(pl.LightningModule):
     def __init__(self,
                  in_ch=3,
                  latent_dim=256,
                  out_ch=3,
                  encoder_layers=[16, 32, 64, 128, 256],
                  decoder_layers=[256, 128, 64, 32, 16],
-                 image_h=32,
-                 image_w=32,
-                 prior: lnn.PriorBase = lnn.StandardNormalPrior(256),
                  act_fn=nn.SiLU,
                  final_act_fn=nn.Tanh):
         super().__init__()
 
-        decoder_init_h = image_h // (2 ** (len(decoder_layers)-1))
-        decoder_init_w = image_w // (2 ** (len(decoder_layers)-1))
-
         self.encoder = Encoder(in_ch, latent_dim, encoder_layers, act_fn)
         self.decoder = Decoder(
-            latent_dim, out_ch, decoder_layers, decoder_init_h, decoder_init_w, act_fn, final_act_fn=final_act_fn)
-        self.prior = prior
+            latent_dim, out_ch, decoder_layers, act_fn, final_act_fn=final_act_fn)
 
         self.weight_init()
 
@@ -152,39 +167,9 @@ class SimpleVAE(pl.LightningModule):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
-    def forward(self, x, stage="train"):
-        mean, log_var = self.encoder(x)
-        if stage == "train":
-            z = self.reparametrize(mean, log_var)
-        else:
-            z = mean
+    def forward(self, x):
+        z = self.encoder(x)
         out = self.decoder(z)
         return out, {
-            "mean": mean,
-            "log_var": log_var,
-            "z": z
-        }
-
-    def reparametrize(self, mean, log_var):
-        return mean + torch.exp(0.5 * log_var) * torch.randn_like(log_var)
-
-    def kl_divergence(self, z, mean, log_var, reduction="sum"):
-        posterior_log_prob = LF.log_prob_mvdiag_normal(z, mean, log_var)
-        prior_log_prob = self.prior.log_prob(z)
-
-        kl_div = posterior_log_prob - prior_log_prob
-        if reduction == "sum":
-            return kl_div.sum(dim=-1)
-        elif reduction == "mean":
-            return kl_div.mean(dim=-1)
-        elif reduction is None:
-            return kl_div
-        else:
-            raise ValueError(f"Unknown reduction {reduction}")
-
-    def sample(self, num_samples):
-        z = self.prior.sample(
-            num_samples, dtype=self.dtype, device=self.device)
-        return self.decoder(z), {
             "z": z
         }

@@ -41,16 +41,16 @@ class ImageReconLogger(pl.Callback):
         self.gray_transform = ToPILImage("L")
 
     def _log_samples(self, trainer, pl_module):
-        recons, _ = pl_module.forward(self.input_dict)
+        recons, _ = pl_module.inference(self.input_dict)
         recons = (recons.cpu() + 1.) / 2.
         grays = (self.input_dict["input"].cpu() + 1.) / 2.
         originals = (self.input_dict["target"].cpu() + 1.) / 2.
 
         images, inps, gts = [], [], []
         for recon, gray, original in zip(recons, grays, originals):
-            images.append(wandb.Image(self.transform(recon)))
-            inps.append(wandb.Image(self.gray_transform(gray)))
-            gts.append(wandb.Image(self.transform(original)))
+            images.append(wandb.Image(self._to_image(recon)))
+            inps.append(wandb.Image(self._to_image(gray)))
+            gts.append(wandb.Image(self._to_image(original)))
 
         trainer.logger.experiment.log({
             "recons": images,
@@ -58,6 +58,14 @@ class ImageReconLogger(pl.Callback):
             "gts": gts,
             "global_step": trainer.global_step
             })
+
+    def _to_image(self, tensor):
+        if tensor.shape[0] == 3:
+            return self.transform(tensor)
+        elif tensor.shape[0] == 1:
+            return self.gray_transform(tensor)
+        else:
+            raise ValueError("Unknown channel count")
     
     def on_validation_epoch_end(self, trainer, pl_module) -> None:
         self._log_samples(trainer, pl_module)
