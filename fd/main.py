@@ -35,7 +35,7 @@ def main():
     recon_dict = next(iter(val_loader))
 
     wandb_logger = WandbLogger(project=config.project, group=config.group, log_model=False)
-    checkpoint_callback = ModelCheckpoint(os.path.join(config.trainer.out_dir, wandb_logger.experiment.name), monitor="val/loss_recon", save_last=True, save_top_k=1)
+    checkpoint_callback = ModelCheckpoint(os.path.join(config.trainer.out_dir, wandb_logger.experiment.name), monitor=config.trainer.pl.monitor, save_last=True, save_top_k=1)
 
     trainer = pl.Trainer(
         logger=wandb_logger,

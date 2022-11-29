@@ -12,58 +12,9 @@ import pytorch_lightning as pl
 import fd.nn as lnn
 import fd.nn.functional as LF
 import fd.nn.modules.guided_diffusion as gd
+from fd.util.config import BetaScheduleConfig
 
-from .simple_ae import DownBlock, UpBlock
-
-__all__ = ["AEDDPM", "Encoder", "Decoder"]
-
-
-class Encoder(nn.Module):
-    def __init__(self, in_ch=3, out_ch=16, channels=[16, 32, 64, 128], act_fn=nn.SiLU):
-        super().__init__()
-
-        layers = [
-            nn.Conv2d(in_ch, channels[0], kernel_size=3,
-                      padding=1, stride=1, bias=True)
-        ]
-        for i in range(1, len(channels)):
-            layers.extend([
-                DownBlock(channels[i-1], channels[i], act_fn=act_fn),
-            ])
-        layers.extend([
-            nn.InstanceNorm2d(channels[-1], affine=True),
-            act_fn(),
-            nn.Conv2d(channels[-1], out_ch, kernel_size=1, stride=1, padding=0)
-        ])
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.model(x)
-
-
-class Decoder(nn.Module):
-    def __init__(self, in_ch=32, out_ch=3, channels=[128, 64, 32, 16], act_fn=nn.SiLU, final_act_fn=nn.Tanh):
-        super().__init__()
-
-        layers = [
-            nn.Conv2d(in_ch, channels[-1], kernel_size=1, stride=1, padding=0)
-        ]
-        for i in range(1, len(channels)):
-            layers.extend([
-                UpBlock(channels[i-1], channels[i], act_fn=act_fn),
-            ])
-        layers.extend([
-            nn.InstanceNorm2d(channels[-1], affine=True),
-            act_fn(),
-            nn.Conv2d(channels[-1], out_ch, kernel_size=1,
-                      padding=0, stride=1, bias=True),
-            final_act_fn()
-        ])
-        self.model = nn.Sequential(*layers)
-
-    def forward(self, z):
-        return self.model(z)
-
+__all__ = ["AEDDPM"]
 
 class AEDDPM(pl.LightningModule):
     gammas: torch.Tensor
@@ -71,26 +22,13 @@ class AEDDPM(pl.LightningModule):
     sqrt_recipm1_gammas: torch.Tensor
     
     def __init__(self,
-                 beta_schedule,
-                 target_ch=3,
-                 cond_ch=1,
-                 latent_dim=16,
-                 encoder_layers=[16, 32, 64, 128],
-                 decoder_layers=[128, 64, 32, 16],
-                 image_h=32,
-                 image_w=32,
-                 act_fn=nn.SiLU,
-                 final_act_fn=nn.Tanh):
+                 beta_schedule: BetaScheduleConfig,
+                 latent_dim=64,
+                 ddpm_h=8,
+                 ddpm_w=8):
         super().__init__()
 
         self.beta_schedule = beta_schedule
-
-        ddpm_h = image_h // (2 ** (len(decoder_layers)-1))
-        ddpm_w = image_w // (2 ** (len(decoder_layers)-1))
-
-        self.target_encoder = Encoder(target_ch, latent_dim, encoder_layers, act_fn)
-        self.cond_encoder = Encoder(cond_ch, latent_dim, encoder_layers, act_fn)
-        self.decoder = Decoder(latent_dim, target_ch, decoder_layers, act_fn, final_act_fn=final_act_fn)
 
         self.ddpm = gd.UNet(
             image_size=(2*latent_dim, ddpm_h, ddpm_w),
@@ -99,30 +37,25 @@ class AEDDPM(pl.LightningModule):
             out_channel=latent_dim,
             res_blocks=2,
             channel_mults=[1, 2, 4],
-            attn_res=[4],
+            attn_res=[2],
             dropout=0.2,
         )
 
+        self.loss_fn = F.mse_loss
         self.weight_init()
 
     def weight_init(self):
-        for m in [*self.target_encoder.modules(), *self.cond_encoder.modules(), *self.decoder.modules()]:
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(
-                    m.weight, mode='fan_in', nonlinearity='relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-
-    def forward(self, target, cond, stage="train"):
-        target_down = self.target_encoder(target)
-        cond_down = self.cond_encoder(cond)
-
-        out = self.decoder(z)
-        return out, {
-            "mean": mean,
-            "log_var": log_var,
-            "z": z
-        }
+        for m in self.ddpm.modules():
+            if isinstance(m, nn.InstanceNorm2d):
+                if hasattr(m, 'weight') and m.weight is not None:
+                    nn.init.constant_(m.weight, 1.0)
+                if hasattr(m, 'bias') and m.bias is not None:
+                   nn.init.constant_(m.bias, 0.0)
+            elif isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+                if hasattr(m, 'weight') and m.weight is not None:
+                    nn.init.kaiming_normal_(m.weight, a=0, mode='fan_in')
+                if hasattr(m, 'bias') and m.bias is not None:
+                   nn.init.constant_(m.bias, 0.0)
 
     def set_new_noise_schedule(self, device=torch.device('cuda'), phase='train'):
         to_torch = partial(torch.tensor, dtype=torch.float32, device=device)
@@ -205,7 +138,7 @@ class AEDDPM(pl.LightningModule):
                 ret_arr = torch.cat([ret_arr, y_t], dim=0)
         return y_t, ret_arr
 
-    def forward_ddpm(self, y_0, y_cond=None, noise=None):
+    def forward(self, y_0, y_cond, noise=None):
         # sampling from p(gammas)
         b, *_ = y_0.shape
         t = torch.randint(1, self.num_timesteps, (b,), device=y_0.device).long()
@@ -217,7 +150,6 @@ class AEDDPM(pl.LightningModule):
         noise = default(noise, lambda: torch.randn_like(y_0))
         y_noisy = self.q_sample(
             y_0=y_0, sample_gammas=sample_gammas.view(-1, 1, 1, 1), noise=noise)
-
 
         noise_hat = self.ddpm(torch.cat([y_cond, y_noisy], dim=1), sample_gammas)
         loss = self.loss_fn(noise, noise_hat)

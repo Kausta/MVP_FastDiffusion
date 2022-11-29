@@ -44,6 +44,6 @@ class DataModule(pl.LightningDataModule):
         return self.get_dataloader(
             self.val_set, 
             self.config.data.test_batch_size,
-            shuffle=True,
+            shuffle=False,
             num_workers=self.config.data.test_workers
         )

@@ -52,12 +52,20 @@ class ImageReconLogger(pl.Callback):
             inps.append(wandb.Image(self._to_image(gray)))
             gts.append(wandb.Image(self._to_image(original)))
 
-        trainer.logger.experiment.log({
+        results = {
             "recons": images,
             "inps": inps,
             "gts": gts,
             "global_step": trainer.global_step
-            })
+        }
+
+        if hasattr(pl_module, "inference_ema"):
+            ema_recons, _ = pl_module.inference_ema(self.input_dict)
+            ema_recons = (ema_recons.cpu() + 1.) / 2.
+            emas = [wandb.Image(self._to_image(img)) for img in ema_recons]
+            results["emas"] = emas
+
+        trainer.logger.experiment.log(results)
 
     def _to_image(self, tensor):
         if tensor.shape[0] == 3:
@@ -68,6 +76,7 @@ class ImageReconLogger(pl.Callback):
             raise ValueError("Unknown channel count")
     
     def on_validation_epoch_end(self, trainer, pl_module) -> None:
-        self._log_samples(trainer, pl_module)
+        with torch.no_grad():
+            self._log_samples(trainer, pl_module)
 
                                                        

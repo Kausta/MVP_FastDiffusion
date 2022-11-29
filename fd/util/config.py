@@ -8,7 +8,8 @@ from omegaconf import OmegaConf, DictConfig
 
 __all__ = ["FDConfig", "ConfigType", "load_config", "print_config",
            "ModelConfig", "OptimizerConfig", "DataConfig", "TrainerConfig",
-           "MiscConfig", "PLTrainerConfig", "LossConfig"]
+           "MiscConfig", "PLTrainerConfig", "LossConfig", "DiffusionConfig", 
+           "PhaseBetaScheduleConfig", "BetaScheduleConfig"]
 
 
 @dataclass
@@ -63,6 +64,7 @@ class PLTrainerConfig:
     devices: int = 1
     cudnn_benchmark: bool = True
     log_freq: int = 50
+    monitor: str = "val/loss_recon"
 
 
 @dataclass
@@ -77,6 +79,25 @@ class TrainerConfig:
 class MiscConfig:
     seed: int = 42
 
+@dataclass
+class PhaseBetaScheduleConfig:
+    schedule: str = "linear"
+    n_timestep: int = 2000
+    linear_start: float = 1e-6
+    linear_end: float = 0.01
+
+@dataclass 
+class BetaScheduleConfig:
+    train: PhaseBetaScheduleConfig = PhaseBetaScheduleConfig("linear", 2000, 1e-6, 0.01)
+    test: PhaseBetaScheduleConfig = PhaseBetaScheduleConfig("linear", 1000, 1e-4, 0.09)
+
+@dataclass 
+class DiffusionConfig:
+    ae_ckpt: str = str(Path("~/ckpt/simpleae/simpleae_recon.ckpt").expanduser())
+    # ae_config: str = "./config/simpleae_recon.yaml"
+    beta_schedule: BetaScheduleConfig = BetaScheduleConfig()
+    sample_num: int = 8
+    ema_decay: float = 0.9999
 
 @dataclass
 class FDConfig:
@@ -86,6 +107,7 @@ class FDConfig:
     data: DataConfig = DataConfig()
     trainer: TrainerConfig = TrainerConfig()
     misc: MiscConfig = MiscConfig()
+    diffusion: DiffusionConfig = DiffusionConfig()
     project: str = "fast_diffusion"
     group: str = "default"
 
