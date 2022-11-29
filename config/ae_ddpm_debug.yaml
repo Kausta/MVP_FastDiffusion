@@ -50,3 +50,4 @@ diffusion:
 
 loss:
   cond_weight: 1.0
+  cond_latent_weight: 0.5
