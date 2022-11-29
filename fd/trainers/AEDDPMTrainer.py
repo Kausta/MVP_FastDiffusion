@@ -123,6 +123,11 @@ class AEDDPMTrainer(pl.LightningModule):
             out["loss_recon"] = recon_loss
             out["loss_lpips"] = lpips_loss 
 
+        if self.hparams.loss.cond_latent_weight is not None:
+            cond_latent_loss = F.mse_loss(z_cond, z_target, reduction="mean")
+            loss = loss + cond_latent_loss
+            out["loss_cond_latent"] = cond_latent_loss
+
         out["loss"] = loss
 
         return out
