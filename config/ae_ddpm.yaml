@@ -3,10 +3,10 @@ group: ae_ddpm
 
 trainer:
   trainer: AEDDPMTrainer
-  out_dir: /rds/user/ok313/outputs/aeddpm
+  out_dir: /home/ok313/outputs/aeddpm
   max_epochs: 100
   pl:
-    monitor: val/loss
+    monitor: val/loss_noise
     log_freq: 50
 
 data:

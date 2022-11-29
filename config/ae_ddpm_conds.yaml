@@ -1,9 +1,12 @@
 project: fast_diffusion
-group: simpleae_color
+group: ae_ddpm
 
 trainer:
+  trainer: AEDDPMTrainer
+  out_dir: /home/ok313/outputs/aeddpm
   max_epochs: 100
   pl:
+    monitor: val/loss_noise
     log_freq: 50
 
 data:
@@ -28,16 +31,23 @@ model:
   decoder_channels: [256, 128, 64, 32, 16]
 
 optimizer:
-  optimizer: "adamw"
-  lr: 1e-3
-  wd: 1e-2
-  scheduler: cosine_warmup
-  sched_interval: step
-  warmup: 5
+  optimizer: adam
+  lr: 5e-5
+  wd: 0
+  scheduler:
+
+diffusion:
+  beta_schedule:
+    train:
+      schedule: linear
+      n_timestep: 2000
+      linear_start: 1e-6
+      linear_end: 0.01
+    test: 
+      schedule: linear
+      n_timestep: 1000
+      linear_start: 1e-4
+      linear_end: 0.09
 
 loss:
-  kl_cycle: 25
-  mse_weight: 1.0
-
-misc:
-  seed: 43
+  cond_weight: 1.0
