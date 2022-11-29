@@ -1,5 +1,5 @@
 project: fast_diffusion
-group: simplevae_recon
+group: simplevae_color
 
 trainer:
   trainer: SimpleVAETrainer
@@ -11,7 +11,7 @@ trainer:
 
 data:
   data_root: /rds/user/ok313/hpc-work/datasets/
-  dataset_cls: CelebaHQReconDataset
+  dataset_cls: CelebaHQColorizationDataset
   dataset: celeba_hq_256
   split: celebahq
   train_batch_size: 256
@@ -22,7 +22,7 @@ data:
   test_workers: 4
 
 model:
-  in_ch: 3
+  in_ch: 1
   latent_dim: 64
   out_ch: 3
   image_h: 128

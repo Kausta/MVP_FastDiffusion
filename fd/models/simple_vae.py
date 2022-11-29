@@ -24,7 +24,7 @@ class SimpleVAE(pl.LightningModule):
                  final_act_fn=nn.Tanh):
         super().__init__()
 
-        self.encoder = Encoder(in_ch, latent_dim, encoder_layers, act_fn)
+        self.encoder = Encoder(in_ch, 2 * latent_dim, encoder_layers, act_fn)
         self.decoder = Decoder(
             latent_dim, out_ch, decoder_layers, act_fn, final_act_fn=final_act_fn)
 
@@ -39,7 +39,8 @@ class SimpleVAE(pl.LightningModule):
                     nn.init.constant_(m.bias, 0)
 
     def forward(self, x, stage="train"):
-        mean, log_var = self.encoder(x)
+        mean_log_var = self.encoder(x)
+        mean, log_var = torch.chunk(mean_log_var, 2, dim=1)
         if stage == "train":
             z = self.reparametrize(mean, log_var)
         else:

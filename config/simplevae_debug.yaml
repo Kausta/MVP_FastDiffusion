@@ -1,5 +1,5 @@
 project: fast_diffusion
-group: simpleae_recon
+group: simplevae_debug
 
 trainer:
   trainer: SimpleVAETrainer
