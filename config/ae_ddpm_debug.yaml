@@ -6,7 +6,7 @@ trainer:
   out_dir: /home/dk665/outputs/aeddpm
   max_epochs: 10
   pl:
-    monitor: val/loss
+    monitor: val/loss_noise
     log_freq: 50
 
 data:
@@ -47,3 +47,6 @@ diffusion:
       n_timestep: 1000
       linear_start: 1e-4
       linear_end: 0.09
+
+loss:
+  cond_weight: 1.0

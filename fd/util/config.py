@@ -56,6 +56,7 @@ class LossConfig:
     kl_weight: float = 1.0
     kl_cycle: int = 25
     lpips_weight: float = 1.0
+    cond_weight: Union[float, None] = None
 
 
 @dataclass

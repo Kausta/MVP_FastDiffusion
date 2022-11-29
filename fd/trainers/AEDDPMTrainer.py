@@ -54,6 +54,9 @@ class AEDDPMTrainer(pl.LightningModule):
         self.ema_noise_schedule = "test"
         self.model_ema.module.set_new_noise_schedule(device=self.device, phase="test")
 
+        if self.hparams.loss.cond_weight is not None:
+            self.loss_fn_vgg = lpips.LPIPS(net='vgg') 
+
         self.weight_init()
 
     def weight_init(self):
@@ -107,11 +110,22 @@ class AEDDPMTrainer(pl.LightningModule):
         
         loss_noise = self.model(z_target, z_cond) 
         loss = loss_noise
-
-        return {
-            "loss": loss,
+        out = {
             "loss_noise": loss_noise
         }
+
+        if self.hparams.loss.cond_weight is not None:
+            pred = self.ae.decoder(z_cond)
+            recon_loss = F.mse_loss(pred, target, reduction="mean")
+            lpips_loss = self.loss_fn_vgg(pred, target).mean()
+
+            loss = loss + self.hparams.loss.mse_weight * recon_loss + self.hparams.loss.lpips_weight * lpips_loss
+            out["loss_recon"] = recon_loss
+            out["loss_lpips"] = lpips_loss 
+
+        out["loss"] = loss
+
+        return out
 
     def log_all(self, out, step="train"):
         on_step = (step == "train")
