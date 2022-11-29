@@ -30,7 +30,6 @@ class SimpleVAETrainer(pl.LightningModule):
             out_ch=model_params.out_ch,
             encoder_layers=model_params.encoder_channels,
             decoder_layers=model_params.decoder_channels,
-            prior=lnn.StandardNormalPrior(),
             act_fn=nn.SiLU,
             final_act_fn=nn.Tanh
         )

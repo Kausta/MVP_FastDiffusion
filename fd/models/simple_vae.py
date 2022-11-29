@@ -20,7 +20,6 @@ class SimpleVAE(pl.LightningModule):
                  out_ch=3,
                  encoder_layers=[16, 32, 64, 128, 256],
                  decoder_layers=[256, 128, 64, 32, 16], 
-                 prior: lnn.PriorBase = lnn.StandardNormalPrior(),
                  act_fn=nn.SiLU,
                  final_act_fn=nn.Tanh):
         super().__init__()
@@ -28,7 +27,6 @@ class SimpleVAE(pl.LightningModule):
         self.encoder = Encoder(in_ch, latent_dim, encoder_layers, act_fn)
         self.decoder = Decoder(
             latent_dim, out_ch, decoder_layers, act_fn, final_act_fn=final_act_fn)
-        self.prior = prior
 
         self.weight_init()
 
@@ -59,9 +57,9 @@ class SimpleVAE(pl.LightningModule):
     def kl_divergence(self, z, mean, log_var, reduction="sum"):
         B = z.shape[0]
         z, mean, log_var = z.reshape(B, -1), mean.reshape(B, -1), log_var.reshape(B, -1)
-        
+
         posterior_log_prob = LF.log_prob_mvdiag_normal(z, mean, log_var)
-        prior_log_prob = self.prior.log_prob(z)
+        prior_log_prob = LF.log_prob_standard_normal(z)
 
         kl_div = posterior_log_prob - prior_log_prob
         if reduction == "sum":
