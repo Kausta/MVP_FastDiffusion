@@ -42,7 +42,10 @@ class AEDDPM(pl.LightningModule):
         )
 
         self.loss_fn = F.mse_loss
-        self.weight_init()
+        # self.weight_init()
+
+        self.clip_denoised = True
+        self.clip_bounds = 10
 
     def weight_init(self):
         for m in self.ddpm.modules():
@@ -96,13 +99,13 @@ class AEDDPM(pl.LightningModule):
         posterior_log_variance_clipped = extract(self.posterior_log_variance_clipped, t, y_t.shape)
         return posterior_mean, posterior_log_variance_clipped
 
-    def p_mean_variance(self, y_t, t, clip_denoised: bool, y_cond=None):
+    def p_mean_variance(self, y_t, t, y_cond=None):
         noise_level = extract(self.gammas, t, x_shape=(1, 1)).to(y_t.device)
         y_0_hat = self.predict_start_from_noise(
                 y_t, t=t, noise=self.ddpm(torch.cat([y_cond, y_t], dim=1), noise_level))
 
-        if clip_denoised:
-            y_0_hat.clamp_(-1., 1.)
+        if self.clip_denoised:
+            y_0_hat.clamp_(-self.clip_bounds, self.clip_bounds)
 
         model_mean, posterior_log_variance = self.q_posterior(
             y_0_hat=y_0_hat, y_t=y_t, t=t)
@@ -116,9 +119,9 @@ class AEDDPM(pl.LightningModule):
         )
 
     @torch.no_grad()
-    def p_sample(self, y_t, t, clip_denoised=False, y_cond=None):
+    def p_sample(self, y_t, t, y_cond=None):
         model_mean, model_log_variance = self.p_mean_variance(
-            y_t=y_t, t=t, clip_denoised=clip_denoised, y_cond=y_cond)
+            y_t=y_t, t=t, y_cond=y_cond)
         noise = torch.randn_like(y_t) if any(t>0) else torch.zeros_like(y_t)
         return model_mean + noise * (0.5 * model_log_variance).exp()
 

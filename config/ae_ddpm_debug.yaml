@@ -30,10 +30,11 @@ model:
   decoder_channels: [256, 128, 64, 32, 16]
 
 optimizer:
-  optimizer: adam
-  lr: 5e-5
-  wd: 0
-  scheduler:
+  optimizer: adamw
+  lr: 1e-3
+  wd: 1e-2
+  scheduler: cosine_warmup
+  warmup: 2
 
 diffusion:
   beta_schedule:
@@ -47,7 +48,3 @@ diffusion:
       n_timestep: 1000
       linear_start: 1e-4
       linear_end: 0.09
-
-loss:
-  cond_weight: 1.0
-  cond_latent_weight: 0.5
