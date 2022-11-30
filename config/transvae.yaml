@@ -20,6 +20,7 @@ data:
   train_workers: 4
   val_workers: 4
   test_workers: 4
+  n_bits: 5
 
 model:
   in_ch: 1

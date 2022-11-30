@@ -52,8 +52,7 @@ class TranslationVAE(pl.LightningModule):
                 if m.affine:
                     self.all_in_layers.append(m)
             elif isinstance(m, nn.Conv2d):
-                # nn.init.kaiming_normal_(
-                #     m.weight, mode='fan_in', nonlinearity='relu')
+                # nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
                 m = weight_norm(m)
                 self.all_conv_layers.append(m)            
 

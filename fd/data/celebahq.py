@@ -24,12 +24,15 @@ class CelebaHQColorizationDataset(data.Dataset):
         self.flist = flist
 
         self.image_size = [config.model.image_h, config.model.image_w]
-        self.transform = transforms.Compose([
-                transforms.ColorJitter(0.1, 0.1, 0.1, 0.1),
-                transforms.RandomHorizontalFlip(),
-                transforms.Resize(self.image_size),
-                transforms.ToTensor(),
+        T = [] 
+        if self.phase == "train":
+            T.append(transforms.RandomHorizontalFlip())
+        T.extend([
+            transforms.Resize(self.image_size),
+            transforms.ToTensor(),
+            ReduceBits(config.data.n_bits)
         ])
+        self.transform = transforms.Compose(T)
         self.gray_transform = transforms.Compose([
             transforms.Grayscale(),
             transforms.Normalize(mean=[0.5], std=[0.5])
@@ -68,13 +71,16 @@ class CelebaHQReconDataset(data.Dataset):
         self.flist = flist
 
         self.image_size = [config.model.image_h, config.model.image_w]
-        self.transform = transforms.Compose([
-                transforms.ColorJitter(0.1, 0.1, 0.1, 0.1),
-                transforms.RandomHorizontalFlip(),
-                transforms.Resize(self.image_size),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+        T = [] 
+        if self.phase == "train":
+            T.append(transforms.RandomHorizontalFlip())
+        T.extend([
+            transforms.Resize(self.image_size),
+            transforms.ToTensor(),
+            ReduceBits(config.data.n_bits),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
         ])
+        self.transform = transforms.Compose(T)
 
     def __len__(self):
         return len(self.flist)
@@ -90,4 +96,13 @@ class CelebaHQReconDataset(data.Dataset):
             "input": gt_image
         }
 
-   
+class ReduceBits(torch.nn.Module):
+    def __init__(self, n_bits):
+        super().__init__()
+        self.n_bits = n_bits
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.n_bits != 8:
+            x = torch.floor(x * 255 / 2 ** (8 - self.n_bits))
+            x /= (2 ** self.n_bits - 1)
+        return x

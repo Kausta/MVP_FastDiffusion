@@ -60,19 +60,23 @@ class TranslationVAETrainer(pl.LightningModule):
 
         loss_weights = self.hparams.loss
         recon_loss = F.l1_loss(pred, target, reduction="mean") + loss_weights.trans_vae_cond_weight * F.l1_loss(pred_cond, target, reduction="mean")
-        lpips_loss = self.loss_fn_vgg(pred, target).mean() + loss_weights.trans_vae_cond_weight * self.loss_fn_vgg(pred_cond, target).mean() 
+        
         KL = self.model.kl_divergence(out["z_recon"], out["mean_recon"], out["log_var_recon"], reduction="mean").mean() \
             + loss_weights.trans_vae_cond_weight * self.model.kl_divergence(out["z_cond"], out["mean_cond"], out["log_var_cond"], reduction="mean").mean()
         latent_l1 = F.l1_loss(out["z_cond"], out["z_recon"].detach(), reduction="mean")
 
-        loss = self.hparams.loss.l1_weight * recon_loss + self.hparams.loss.lpips_weight * lpips_loss + kl_mult * self.hparams.loss.kl_weight * KL + latent_l1
+        loss = self.hparams.loss.l1_weight * recon_loss + kl_mult * self.hparams.loss.kl_weight * KL + latent_l1
 
         outs = {
             "loss_recon": recon_loss,
-            "loss_lpips": lpips_loss,
             "loss_KL": KL,
             "loss_latent_l1": latent_l1
         }
+
+        if self.current_epoch >= self.hparams.optimizer.warmup:
+            lpips_loss = self.loss_fn_vgg(pred, target).mean() + loss_weights.trans_vae_cond_weight * self.loss_fn_vgg(pred_cond, target).mean() 
+            loss += self.hparams.loss.lpips_weight * lpips_loss
+            out["loss_lpips"] = lpips_loss
 
         if phase == "train":
             if loss_weights.affine_weight is not None:

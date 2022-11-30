@@ -47,6 +47,7 @@ class DataConfig:
     train_workers: int = 4
     val_workers: int = 4
     test_workers: int = 4
+    n_bits: int = 8
 
 
 @dataclass

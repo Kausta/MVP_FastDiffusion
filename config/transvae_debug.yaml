@@ -20,6 +20,7 @@ data:
   train_workers: 4
   val_workers: 4
   test_workers: 4
+  n_bits: 5
 
 model:
   in_ch: 1
@@ -36,7 +37,7 @@ optimizer:
   wd: 3e-4
   scheduler: cosine_warmup
   sched_interval: step
-  warmup: 5
+  warmup: 2
 
 loss:
   kl_cycle: 5
