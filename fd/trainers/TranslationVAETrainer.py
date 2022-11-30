@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import numpy as np
 
 import pytorch_lightning as pl
 import lpips
@@ -48,7 +49,7 @@ class TranslationVAETrainer(pl.LightningModule):
             stage='train' if reparametrize else 'eval')
         return pred, pred_cond, outs
 
-    def loss(self, input_dict, kl_mult=1.0):
+    def loss(self, input_dict, phase="train", kl_mult=1.0, wdn_coeff=1.0):
         input_dict["input"] = input_dict["input"].to(self.device)
         input_dict["target"] = input_dict["target"].to(self.device)
 
@@ -66,13 +67,26 @@ class TranslationVAETrainer(pl.LightningModule):
 
         loss = self.hparams.loss.l1_weight * recon_loss + self.hparams.loss.lpips_weight * lpips_loss + kl_mult * self.hparams.loss.kl_weight * KL + latent_l1
 
-        return {
-            "loss": loss,
+        outs = {
             "loss_recon": recon_loss,
             "loss_lpips": lpips_loss,
             "loss_KL": KL,
             "loss_latent_l1": latent_l1
         }
+
+        if phase == "train":
+            if loss_weights.affine_weight is not None:
+                affine_loss = self.model.affine_loss()
+                loss += wdn_coeff * loss_weights.affine_weight * affine_loss 
+                outs["loss_affine"] = affine_loss
+
+            if loss_weights.spectral_weight is not None:
+                spectral_norm_loss = self.model.spectral_norm_loss()
+                loss += wdn_coeff * loss_weights.spectral_weight * spectral_norm_loss
+                outs["loss_spectral_norm"] = spectral_norm_loss
+
+        outs["loss"] = loss
+        return outs
 
     def log_all(self, out, step="train"):
         on_step = (step == "train")
@@ -87,18 +101,22 @@ class TranslationVAETrainer(pl.LightningModule):
         kl_mult = min(1., 2 * (kl_mult_epoch + kl_mult_step /
                       self.hparams.loss.kl_cycle))
 
-        out = self.loss(batch, kl_mult=kl_mult)
+        wdn_coeff = (1. - kl_mult) * np.log(1.) + kl_mult * np.log(1e-2)
+        wdn_coeff = np.exp(wdn_coeff)
+
+        out = self.loss(batch, phase="train", kl_mult=kl_mult, wdn_coeff=wdn_coeff)
         self.log_all(out, "train")
         self.log("trainer/kl_mult", kl_mult, on_step=True, on_epoch=False)
+        self.log("trainer/wdn_coeff", wdn_coeff, on_step=True, on_epoch=False)
         return out["loss"]
 
     def validation_step(self, batch, batch_idx):
-        out = self.loss(batch)
+        out = self.loss(batch, phase="val")
         self.log_all(out, "val")
         return out["loss"]
 
     def test_step(self, batch, batch_idx):
-        out = self.loss(batch)
+        out = self.loss(batch, phase="test")
         self.log_all(out, "test")
         return out["loss"]
 

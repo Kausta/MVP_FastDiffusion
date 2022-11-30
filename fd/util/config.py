@@ -61,6 +61,9 @@ class LossConfig:
     cond_weight: Union[float, None] = None
     cond_latent_weight: Union[float, None] = None
 
+    affine_weight: Union[float, None] = None
+    spectral_weight: Union[float, None] = None
+
 
 @dataclass
 class PLTrainerConfig:

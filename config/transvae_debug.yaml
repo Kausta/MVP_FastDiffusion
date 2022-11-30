@@ -40,6 +40,8 @@ optimizer:
 
 loss:
   kl_cycle: 5
-  kl_weight: 0.1
+  kl_weight: 0.2
   l1_weight: 0.5
   trans_vae_cond_weight: 0.5
+  affine_weight: 0.2
+  spectral_weight: 0.2
