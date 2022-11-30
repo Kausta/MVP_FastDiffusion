@@ -56,6 +56,8 @@ class LossConfig:
     kl_weight: float = 1.0
     kl_cycle: int = 25
     lpips_weight: float = 1.0
+    trans_vae_cond_weight: float = 0.5
+
     cond_weight: Union[float, None] = None
     cond_latent_weight: Union[float, None] = None
 
@@ -67,6 +69,7 @@ class PLTrainerConfig:
     cudnn_benchmark: bool = True
     log_freq: int = 50
     monitor: str = "val/loss_recon"
+    precision: int = 32
 
 
 @dataclass

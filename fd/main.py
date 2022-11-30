@@ -48,7 +48,8 @@ def main():
             LearningRateMonitor("step"),
             trainers.ImageReconLogger(recon_dict),
             checkpoint_callback
-        ]
+        ],
+        precision=config.trainer.pl.precision
     )
 
     Model = getattr(trainers, config.trainer.trainer)

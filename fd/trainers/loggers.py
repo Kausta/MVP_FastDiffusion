@@ -41,7 +41,8 @@ class ImageReconLogger(pl.Callback):
         self.gray_transform = ToPILImage("L")
 
     def _log_samples(self, trainer, pl_module):
-        recons, _ = pl_module.inference(self.input_dict)
+        out = pl_module.inference(self.input_dict)
+        recons = out[0]
         recons = (recons.cpu() + 1.) / 2.
         grays = (self.input_dict["input"].cpu() + 1.) / 2.
         originals = (self.input_dict["target"].cpu() + 1.) / 2.
@@ -58,6 +59,12 @@ class ImageReconLogger(pl.Callback):
             "gts": gts,
             "global_step": trainer.global_step
         }
+        
+        if len(out) > 2:
+            conds = out[1]
+            conds = (conds.cpu() + 1.) / 2.
+            conds = [wandb.Image(self._to_image(img)) for img in conds]
+            results["conds"] = conds
 
         if hasattr(pl_module, "inference_ema"):
             ema_recons, _ = pl_module.inference_ema(self.input_dict)

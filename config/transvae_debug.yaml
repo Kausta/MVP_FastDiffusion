@@ -1,0 +1,45 @@
+project: fast_diffusion
+group: transvae
+
+trainer:
+  trainer: TranslationVAETrainer
+  out_dir: /home/dk665/outputs/transvae
+  max_epochs: 20
+  pl:
+    log_freq: 50
+    monitor: val/loss
+    precision: 16
+
+data:
+  dataset_cls: CelebaHQColorizationDataset
+  dataset: celeba_hq_256
+  split: celebahq
+  train_batch_size: 32
+  val_batch_size: 32
+  test_batch_size: 32
+  train_workers: 4
+  val_workers: 4
+  test_workers: 4
+
+model:
+  in_ch: 1
+  latent_dim: 64
+  out_ch: 3
+  image_h: 128
+  image_w: 128
+  encoder_channels: [16, 32, 64, 128, 256]
+  decoder_channels: [256, 128, 64, 32, 16]
+
+optimizer:
+  optimizer: "adamax"
+  lr: 1e-3
+  wd: 3e-4
+  scheduler: cosine_warmup
+  sched_interval: step
+  warmup: 5
+
+loss:
+  kl_cycle: 5
+  kl_weight: 0.1
+  l1_weight: 0.5
+  trans_vae_cond_weight: 0.5
