@@ -49,7 +49,8 @@ def main():
             trainers.ImageReconLogger(recon_dict),
             checkpoint_callback
         ],
-        precision=config.trainer.pl.precision
+        precision=config.trainer.pl.precision,
+        num_sanity_val_steps=0
     )
 
     Model = getattr(trainers, config.trainer.trainer)

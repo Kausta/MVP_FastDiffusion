@@ -33,7 +33,7 @@ class TranslationVAETrainer(pl.LightningModule):
             encoder_layers=model_params.encoder_channels,
             decoder_layers=model_params.decoder_channels,
             act_fn=nn.SiLU,
-            final_act_fn=nn.Tanh
+            final_act_fn=nn.Identity
         )
         print(self.model)
         self.loss_fn_vgg = lpips.LPIPS(net='vgg') 
@@ -47,6 +47,8 @@ class TranslationVAETrainer(pl.LightningModule):
             input_dict["target"].to(self.device), 
             input_dict["input"].to(self.device), 
             stage='train' if reparametrize else 'eval')
+        pred.clamp_(min=-1, max=1)
+        pred_cond.clamp_(min=-1, max=1)
         return pred, pred_cond, outs
 
     def loss(self, input_dict, phase="train", kl_mult=1.0, wdn_coeff=1.0):
@@ -73,10 +75,10 @@ class TranslationVAETrainer(pl.LightningModule):
             "loss_latent_l1": latent_l1
         }
 
-        if self.current_epoch >= self.hparams.optimizer.warmup:
-            lpips_loss = self.loss_fn_vgg(pred, target).mean() + loss_weights.trans_vae_cond_weight * self.loss_fn_vgg(pred_cond, target).mean() 
-            loss += self.hparams.loss.lpips_weight * lpips_loss
-            out["loss_lpips"] = lpips_loss
+        # if self.current_epoch >= self.hparams.optimizer.warmup:
+        lpips_loss = self.loss_fn_vgg(pred, target).mean() + loss_weights.trans_vae_cond_weight * self.loss_fn_vgg(pred_cond, target).mean() 
+        loss += self.hparams.loss.lpips_weight * lpips_loss
+        outs["loss_lpips"] = lpips_loss
 
         if phase == "train":
             if loss_weights.affine_weight is not None:
