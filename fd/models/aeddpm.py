@@ -40,9 +40,11 @@ class AEDDPM(pl.LightningModule):
             inner_channel=64,
             out_channel=latent_dim,
             res_blocks=2,
-            channel_mults=[1, 2, 4],
-            attn_res=[2],
+            num_heads=4,
+            channel_mults=[2, 4],
+            attn_res=[1],
             dropout=0.2,
+            use_new_attention_order=True
         )
 
         self.loss_fn = F.mse_loss
