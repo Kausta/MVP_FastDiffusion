@@ -23,16 +23,20 @@ class AEDDPM(pl.LightningModule):
     
     def __init__(self,
                  beta_schedule: BetaScheduleConfig,
-                 latent_dim=64,
-                 ddpm_h=8,
-                 ddpm_w=8):
+                 latent_dim: int = 64,
+                 ddpm_h: int = 8,
+                 ddpm_w: int = 8,
+                 concat: bool = True,
+                 clip_bounds: int = 10):
         super().__init__()
 
         self.beta_schedule = beta_schedule
+        self.concat = concat
 
+        in_dim = 2*latent_dim if concat else latent_dim
         self.ddpm = gd.UNet(
-            image_size=(2*latent_dim, ddpm_h, ddpm_w),
-            in_channel=2*latent_dim,
+            image_size=(in_dim, ddpm_h, ddpm_w),
+            in_channel=in_dim,
             inner_channel=64,
             out_channel=latent_dim,
             res_blocks=2,
@@ -45,7 +49,7 @@ class AEDDPM(pl.LightningModule):
         # self.weight_init()
 
         self.clip_denoised = True
-        self.clip_bounds = 10
+        self.clip_bounds = clip_bounds
 
     def weight_init(self):
         for m in self.ddpm.modules():
@@ -84,6 +88,11 @@ class AEDDPM(pl.LightningModule):
         self.register_buffer('posterior_log_variance_clipped', to_torch(np.log(np.maximum(posterior_variance, 1e-20))))
         self.register_buffer('posterior_mean_coef1', to_torch(betas * np.sqrt(gammas_prev) / (1. - gammas)))
         self.register_buffer('posterior_mean_coef2', to_torch((1. - gammas_prev) * np.sqrt(alphas) / (1. - gammas)))
+    
+    def get_input(self, y_cond, y_t):
+        if self.concat:
+            return torch.cat([y_cond, y_t], dim=1)
+        return y_cond + y_t
 
     def predict_start_from_noise(self, y_t, t, noise):
         return (
@@ -102,7 +111,7 @@ class AEDDPM(pl.LightningModule):
     def p_mean_variance(self, y_t, t, y_cond=None):
         noise_level = extract(self.gammas, t, x_shape=(1, 1)).to(y_t.device)
         y_0_hat = self.predict_start_from_noise(
-                y_t, t=t, noise=self.ddpm(torch.cat([y_cond, y_t], dim=1), noise_level))
+                y_t, t=t, noise=self.ddpm(self.get_input(y_cond, y_t), noise_level))
 
         if self.clip_denoised:
             y_0_hat.clamp_(-self.clip_bounds, self.clip_bounds)
@@ -154,7 +163,7 @@ class AEDDPM(pl.LightningModule):
         y_noisy = self.q_sample(
             y_0=y_0, sample_gammas=sample_gammas.view(-1, 1, 1, 1), noise=noise)
 
-        noise_hat = self.ddpm(torch.cat([y_cond, y_noisy], dim=1), sample_gammas)
+        noise_hat = self.ddpm(self.get_input(y_cond, y_noisy), sample_gammas)
         loss = self.loss_fn(noise, noise_hat)
         return loss
 

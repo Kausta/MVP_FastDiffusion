@@ -81,14 +81,14 @@ class TranslationVAE(pl.LightningModule):
     def forward(self, x, x_cond, stage="train"):
         if not self.wn_initialized.item():
             handles = self._data_dependent_init()
-        z_recon = soft_clamp5(self.encoder(x))
+        z_recon = LF.soft_clamp5(self.encoder(x))
         mean_recon, log_var_recon = torch.chunk(z_recon, 2, dim=1)
         if stage == "train":
             z_recon = self.reparametrize(mean_recon, log_var_recon)
         else:
             z_recon = mean_recon
 
-        z_cond = soft_clamp5(self.cond_encoder(x_cond))
+        z_cond = LF.soft_clamp5(self.cond_encoder(x_cond))
         mean_cond, log_var_cond = torch.chunk(z_cond, 2, dim=1)
         if stage == "train":
             z_cond = self.reparametrize(mean_cond, log_var_cond)
@@ -178,6 +178,11 @@ class TranslationVAE(pl.LightningModule):
 
         return loss / N
 
-@torch.jit.script
-def soft_clamp5(x: torch.Tensor):
-    return x.div(5.).tanh_().mul(5.)    #  5. * torch.tanh(x / 5.) <--> soft differentiable clamp between [-5, 5]
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
+        for key in state_dict.keys():
+            if not key.startswith(prefix):
+                continue
+            local_key = key[len(prefix):]
+            if local_key.startswith("sr_"):
+                self.register_buffer(local_key, torch.empty_like(state_dict[key]))
+        return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
