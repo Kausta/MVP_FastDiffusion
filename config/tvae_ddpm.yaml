@@ -38,6 +38,7 @@ optimizer:
 
 diffusion:
   ae_ckpt: /home/ok313/ckpt/tvae/transvae.ckpt
+  concat: True
   beta_schedule:
     train:
       schedule: linear

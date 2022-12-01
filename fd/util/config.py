@@ -107,6 +107,7 @@ class DiffusionConfig:
     beta_schedule: BetaScheduleConfig = BetaScheduleConfig()
     sample_num: int = 8
     ema_decay: float = 0.9999
+    concat: bool = True
 
 @dataclass
 class FDConfig:

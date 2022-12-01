@@ -39,7 +39,8 @@ class VAEDDPMTrainer(pl.LightningModule):
             latent_dim = model_params.latent_dim,
             ddpm_h = ddpm_h,
             ddpm_w = ddpm_w,
-            clip_bounds=5
+            clip_bounds=5,
+            concat=self.hparams.diffusion.concat
         )
         self.model_ema = lnn.EMA(self.model, self.hparams.diffusion.ema_decay)
 
