@@ -3,7 +3,7 @@ group: simplevae_debug
 
 trainer:
   trainer: SimpleVAETrainer
-  out_dir: /home/dk665/outputs/simplevae
+  out_dir: /home/ok313/outputs/simplevae
   max_epochs: 20
   pl:
     log_freq: 50

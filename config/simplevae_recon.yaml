@@ -3,8 +3,8 @@ group: simplevae_recon
 
 trainer:
   trainer: SimpleVAETrainer
-  out_dir: /home/dk665/outputs/simplevae
-  max_epochs: 100
+  out_dir: /home/ok313/outputs/simplevae
+  max_epochs: 200
   pl:
     log_freq: 50
     monitor: val/loss
@@ -14,9 +14,9 @@ data:
   dataset_cls: CelebaHQReconDataset
   dataset: celeba_hq_256
   split: celebahq
-  train_batch_size: 256
-  val_batch_size: 128
-  test_batch_size: 128
+  train_batch_size: 128
+  val_batch_size: 64
+  test_batch_size: 64
   train_workers: 4
   val_workers: 4
   test_workers: 4
@@ -39,4 +39,6 @@ optimizer:
   warmup: 5
 
 loss:
+  mse_weight: 2.0
+  kl_weight: 2.0
   kl_cycle: 25

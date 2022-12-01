@@ -4,7 +4,7 @@ group: ae_ddpm
 trainer:
   trainer: AEDDPMTrainer
   out_dir: /home/ok313/outputs/aeddpm
-  max_epochs: 100
+  max_epochs: 200
   pl:
     monitor: val/loss_noise
     log_freq: 50
@@ -14,9 +14,9 @@ data:
   dataset_cls: CelebaHQColorizationDataset
   dataset: celeba_hq_256
   split: celebahq
-  train_batch_size: 256
-  val_batch_size: 128
-  test_batch_size: 128
+  train_batch_size: 64
+  val_batch_size: 64
+  test_batch_size: 64
   train_workers: 4
   val_workers: 4
   test_workers: 4
@@ -31,12 +31,16 @@ model:
   decoder_channels: [256, 128, 64, 32, 16]
 
 optimizer:
-  optimizer: adam
-  lr: 5e-5
-  wd: 0
-  scheduler:
+  optimizer: "adamw"
+  lr: 1e-4
+  wd: 1e-3
+  scheduler: cosine_warmup
+  sched_interval: step
+  warmup: 10
+  
 
 diffusion:
+  ema_decay: 0.999
   beta_schedule:
     train:
       schedule: linear

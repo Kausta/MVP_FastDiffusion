@@ -14,7 +14,7 @@ data:
   dataset_cls: CelebaHQColorizationDataset
   dataset: celeba_hq_256
   split: celebahq
-  train_batch_size: 256
+  train_batch_size: 128
   val_batch_size: 128
   test_batch_size: 128
   train_workers: 4
@@ -31,12 +31,16 @@ model:
   decoder_channels: [256, 128, 64, 32, 16]
 
 optimizer:
-  optimizer: adam
-  lr: 5e-5
-  wd: 0
-  scheduler:
+  optimizer: "adamw"
+  lr: 5e-4
+  wd: 1e-2
+  scheduler: cosine_warmup
+  sched_interval: step
+  warmup: 5
+  
 
 diffusion:
+  ema_decay: 0.999
   beta_schedule:
     train:
       schedule: linear

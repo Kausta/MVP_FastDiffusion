@@ -14,9 +14,9 @@ data:
   dataset_cls: CelebaHQColorizationDataset
   dataset: celeba_hq_256
   split: celebahq
-  train_batch_size: 32
-  val_batch_size: 32
-  test_batch_size: 32
+  train_batch_size: 8
+  val_batch_size: 8
+  test_batch_size: 8
   train_workers: 4
   val_workers: 4
   test_workers: 4

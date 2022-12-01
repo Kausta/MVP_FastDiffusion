@@ -10,7 +10,7 @@
 
 #! sbatch directives begin here ###############################
 #! Name of the job:
-#SBATCH -J mvpfd_simpleae_color
+#SBATCH -J tvae_ddpm_concat
 #! Which project should be charged (NB Wilkes2 projects end in '-GPU'):
 #SBATCH -A OZTIRELI-SL2-GPU
 #! How many whole nodes should be allocated?
@@ -52,7 +52,7 @@ module purge                               # Removes all modules still loaded
 module load rhel8/default-amp              # REQUIRED - loads the basic environment
 
 #! Insert additional module load commands after this line if needed:
-config="config/ae_ddpm.yaml"
+config="config/tvae_ddpm.yaml"
 
 #! Full path to application executable: 
 application="/home/ok313/miniconda3/envs/mvp/bin/python -m fd.main"

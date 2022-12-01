@@ -20,7 +20,7 @@ data:
   train_workers: 4
   val_workers: 4
   test_workers: 4
-  n_bits: 5
+#  n_bits: 5
 
 model:
   in_ch: 1
@@ -44,5 +44,5 @@ loss:
   kl_weight: 0.2
   l1_weight: 0.5
   trans_vae_cond_weight: 0.5
-  affine_weight: 0.2
-  spectral_weight: 0.2
+#  affine_weight: 0.2
+#  spectral_weight: 0.2
