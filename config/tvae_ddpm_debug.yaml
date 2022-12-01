@@ -31,13 +31,13 @@ model:
 
 optimizer:
   optimizer: adam
-  lr: 1e-4
+  lr: 5e-5
   wd: 0
   scheduler:
 
 diffusion:
   ae_ckpt: /home/dk665/ckpt/tvae/transvae.ckpt
-  concat: False
+  concat: True
   beta_schedule:
     train:
       schedule: linear
