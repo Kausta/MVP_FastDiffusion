@@ -169,6 +169,15 @@ class AEDDPM(pl.LightningModule):
         loss = self.loss_fn(noise, noise_hat)
         return loss
 
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
+        for key in state_dict.keys():
+            if not key.startswith(prefix):
+                continue
+            local_key = key[len(prefix):]
+            if local_key.startswith("gammas") or local_key.startswith("sqrt_recip") or local_key.startswith("posterior"):
+                setattr(self, local_key, state_dict[key])
+        return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+
 
 # gaussian diffusion trainer class
 def exists(x):
